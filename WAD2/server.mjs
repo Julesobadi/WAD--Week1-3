@@ -1,5 +1,16 @@
 import express from 'express';
 import Database from 'better-sqlite3';
+import ViteExpress from 'vite-express';
+import expressSession from 'express-session';
+import betterSqlite3Session from 'express-session-better-sqlite3';
+
+import userRouter from './users.mjs';
+import 'dotenv/config';
+import { checkUserSession } from './middleware/auth.mjs';
+
+
+
+
 const app = express();
 app.use(express.json()); // for express to parse JSON data from the body of HTTP request
 
@@ -8,7 +19,35 @@ app.use(express.static('public'));
 
 
 // load Database
-const db = new Database("wadsongs.db");
+import db from './db.mjs';
+
+
+const sessDb = new Database("session.db");
+const SqliteStore = betterSqlite3Session(expressSession, sessDb);
+
+
+
+app.use(expressSession({
+    store: new SqliteStore(), 
+    secret: 'BinnieAndClyde', 
+    resave: true, 
+    saveUninitialized: false, 
+    rolling: true, 
+    unset: 'destroy', 
+    proxy: true, 
+    cookie: { 
+        maxAge: 600000, // 600000 ms = 10 mins expiry time
+        httpOnly: false // allow client-side code to access the cookie, otherwise it's kept to the HTTP messages
+    }
+}));
+
+
+
+app.use('/users', userRouter);
+
+app.use(checkUserSession);
+
+
 
 
 // Setup root
@@ -138,6 +177,6 @@ app.delete('/song/delete/:id', (req, res) => {
 // Start up the server
 const PORT = 5000;
 
-app.listen(PORT, () => {
-	console.log(`App now running on port ${PORT}.`);
+ViteExpress.listen(app, PORT, () => {
+    console.log(`Server running on port ${PORT}.`);
 });
